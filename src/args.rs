@@ -1,7 +1,7 @@
 use std::net::Ipv4Addr;
 
 pub fn get_args(args: Vec<String>) -> Option<((Ipv4Addr, u16), u32)> {
-    if args.len() != 5 {
+    if args.len() != 3 {
         println!("Usage: ./project targetaddr targetport threads");
         return None;
     }
@@ -12,7 +12,7 @@ pub fn get_args(args: Vec<String>) -> Option<((Ipv4Addr, u16), u32)> {
         .parse::<u16>()
         .expect("couldn't parse port as an u16");
 
-    let threads = args[3]
+    let threads = args[2]
         .parse::<u32>()
         .expect("couldn't parse threads count as an integer.");
     Some(((*server_address, server_port), threads))
