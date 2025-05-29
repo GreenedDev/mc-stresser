@@ -64,11 +64,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
             let _ = match Socks4Stream::connect(proxy, target).await {
                 Ok(value) => {
-                    info!("{proxy_number} - success");
+                    //info!("{proxy_number} - success");
                     value.into_inner()
                 }
                 Err(_) => {
-                    info!("{proxy_number} - fail");
+                    //info!("{proxy_number} - fail");
                     failsarc.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                     return 0;
                 }
