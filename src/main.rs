@@ -26,7 +26,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     };
     SimpleLogger::new(simplelog::LevelFilter::Warn, Config::default());
     tracing_subscriber::fmt::init();
-    let proxies = Arc::new(get_proxies());
+    let proxies = get_proxies();
 
     let cps = Arc::new(AtomicU64::new(0));
     let cpsclone = cps.clone();
@@ -54,13 +54,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
         if proxy_number == proxies.len() {
             proxy_number = 0;
         }
-        let arc = proxies.clone();
+        let proxy = *proxies.get(proxy_number).unwrap();
         let cpsarc = cps.clone();
         let failsarc = fails.clone();
 
         tokio::spawn(async move {
             let _permit = permit;
-            let proxy = arc.get(proxy_number).unwrap();
 
             let _ = match Socks4Stream::connect(proxy, target).await {
                 Ok(value) => {
@@ -68,7 +67,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     value.into_inner()
                 }
                 Err(_) => {
-                    //info!("{proxy_number} - fail");
+                    //info!("{proxy_number} - fail {err:?}");
                     failsarc.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                     return 0;
                 }

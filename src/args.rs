@@ -1,10 +1,12 @@
 use std::net::Ipv4Addr;
 
 pub fn get_args(args: Vec<String>) -> Option<((Ipv4Addr, u16), u32)> {
+    println!("{args:?}");
     if args.len() != 3 {
         println!("Usage: ./project targetaddr targetport threads");
         return None;
     }
+
     let server_address = &args[0]
         .parse::<Ipv4Addr>()
         .expect("cannot parse ip as ipv4");
