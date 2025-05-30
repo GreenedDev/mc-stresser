@@ -1,16 +1,22 @@
+use std::collections::HashMap;
+use std::time::{SystemTime, UNIX_EPOCH};
 use std::{fs, net::SocketAddrV4, sync::atomic::Ordering, sync::Arc};
 use std::{net::Ipv4Addr, sync::atomic::AtomicU64, time::Duration};
 
 use clap::Parser;
 use color_eyre::eyre::{Context, OptionExt};
+use packet_utils::{send_handshake, send_login_start};
+use rust_mc_proto_tokio::{MCConnTcp, Packet};
+use tokio::net::TcpStream;
+use tokio::sync::Mutex;
+use tokio::time::timeout;
 use tokio::{
-    io::{AsyncReadExt, AsyncWriteExt},
-    net::TcpStream,
     sync::{OwnedSemaphorePermit, Semaphore},
     time::sleep,
 };
-use tokio_socks::{tcp::Socks4Stream, IntoTargetAddr};
-use tracing::{debug, error, info, info_span, level_filters::LevelFilter, trace, Instrument};
+use tokio_socks::tcp::Socks4Stream;
+use tracing::{error, info, info_span, level_filters::LevelFilter, trace, Instrument};
+mod packet_utils;
 
 #[derive(Debug, Parser)]
 struct Args {
@@ -28,7 +34,8 @@ async fn main() -> color_eyre::Result<()> {
 
     let args = Args::parse();
     let target = (args.server_address, args.server_port);
-    let proxies = load_proxies()?;
+    let proxies = Arc::new(load_proxies()?);
+    let disabled_proxies = Arc::new(Mutex::new(HashMap::new()));
     let connections = Arc::new(AtomicU64::new(0));
     let failures = Arc::new(AtomicU64::new(0));
 
@@ -41,55 +48,114 @@ async fn main() -> color_eyre::Result<()> {
         let permit = semaphore.clone().acquire_owned().await?;
         trace!("Acquired semaphore permit");
         proxy_index = (proxy_index + 1) % proxies.len();
-        let proxy = proxies[proxy_index];
-        trace!("Spawning connection {connection_index} to proxy {proxy} for target {target:?}");
-        tokio::spawn(
-            connect_to_proxy(proxy, target, connections.clone(), failures.clone(), permit)
-                .instrument(info_span!(
-                    "connect_to_proxy",
-                    connection = connection_index,
-                    proxy = %proxy,
-                )),
-        );
-        trace!("Spawned connection {connection_index} to proxy {proxy} for target {target:?}");
+        let proxies = proxies.clone();
+        let failures = failures.clone();
+        let connections = connections.clone();
+        let disabled_proxies = disabled_proxies.clone();
+        trace!("Spawning connection {connection_index} for target {target:?}");
+        tokio::spawn(async move {
+            let proxy = get_proxy(proxy_index, &disabled_proxies, proxies).await;
+            timeout(
+                Duration::from_secs(2),
+                connect_to_proxy(
+                    proxy,
+                    target,
+                    connections,
+                    failures,
+                    permit,
+                    disabled_proxies,
+                ),
+            )
+            .instrument(info_span!(
+                "connect_to_proxy",
+                connection = connection_index,
+                proxy = %proxy,
+            ))
+            .await
+        });
         connection_index += 1;
+        trace!("Spawned connection {connection_index} for target {target:?}");
     }
 }
+async fn get_proxy(
+    start: usize,
+    disabled_proxies: &Arc<Mutex<HashMap<SocketAddrV4, u128>>>,
+    proxies: Arc<Vec<SocketAddrV4>>,
+) -> SocketAddrV4 {
+    let mut proxy_index = start;
+    let mut proxy;
+    loop {
+        proxy_index = (proxy_index + 1) % proxies.len();
+        proxy = proxies.get(proxy_index).unwrap();
+        trace!("hve");
 
+        match disabled_proxies.lock().await.get(proxy) {
+            Some(value) => {
+                if value < &get_current_time_millis() {
+                    disabled_proxies.lock().await.remove(proxy);
+                    trace!("removed proxy from disableds");
+                    break;
+                }
+            }
+            None => {
+                break;
+            }
+        }
+    }
+    *proxy
+}
 async fn connect_to_proxy(
     proxy: SocketAddrV4,
-    target: impl IntoTargetAddr<'_>,
+    target: (Ipv4Addr, u16),
     connections: Arc<AtomicU64>,
     failures: Arc<AtomicU64>,
     permit: OwnedSemaphorePermit,
-) -> color_eyre::Result<()> {
+    disabled_proxies: Arc<Mutex<HashMap<SocketAddrV4, u128>>>,
+) {
     trace!("Connecting to proxy {proxy}");
     match Socks4Stream::connect(proxy, target).await {
         Ok(stream) => {
             trace!("Successfully connected to proxy {proxy}");
             connections.fetch_add(1, Ordering::Relaxed);
-            if let Err(err) = send_http_request(stream.into_inner()).await {
-                error!("error sending request through proxy {proxy}: {err}");
-            }
+            send_mc_packet(target, stream.into_inner()).await;
         }
         Err(err) => {
+            disabled_proxies
+                .lock()
+                .await
+                .insert(proxy, get_current_time_millis() + 2000);
             error!("Failed to connect to proxy {proxy}: {err}");
             failures.fetch_add(1, Ordering::Relaxed);
         }
     }
     trace!("Dropping semaphore permit");
     drop(permit);
-    Ok(())
 }
+fn get_current_time_millis() -> u128 {
+    let start = SystemTime::now();
+    start
+        .duration_since(UNIX_EPOCH)
+        .expect("Time went backwards")
+        .as_millis()
+}
+async fn send_mc_packet(target: (Ipv4Addr, u16), stream: TcpStream) {
+    let protocol_version = 770;
+    let mut conn = MCConnTcp::new(stream);
 
-#[tracing::instrument(skip_all)]
-async fn send_http_request(mut socket: TcpStream) -> color_eyre::Result<()> {
-    socket.write_all(b"GET / HTTP/1.1\r\n\r\n").await?;
-    let mut buf = vec![0; 1024];
-    let byte_count = socket.read(&mut buf).await?;
-    debug!("Received {} bytes from proxy", byte_count);
-    socket.shutdown().await?;
-    Ok(())
+    // Switch to login state (2)
+    send_handshake(
+        &mut conn,
+        protocol_version,
+        target.0.to_string().as_str(),
+        target.1,
+        2,
+    )
+    .await;
+
+    // Send login start packet
+    send_login_start(&mut conn, "test").await;
+
+    conn.write_packet(&Packet::empty(0x03)).await.ok();
 }
 
 #[tracing::instrument(skip_all)]
