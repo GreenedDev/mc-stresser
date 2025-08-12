@@ -17,7 +17,7 @@ mod packet_utils;
 struct Args {
     server_address: Ipv4Addr,
     server_port: u16,
-    threads: u32,
+    tasks: u32,
 }
 
 #[tokio::main]
@@ -31,9 +31,9 @@ async fn main() -> color_eyre::Result<()> {
 
     tokio::spawn(write_stats(connections.clone(), failures.clone()));
 
-    let threads = args.threads as usize;
+    let tasks = args.tasks as usize;
 
-    for _ in 0..threads {
+    for _ in 0..tasks {
         let connections = connections.clone();
         let failures = failures.clone();
         tokio::spawn(async move {
@@ -72,8 +72,9 @@ async fn worker_loop(
                 continue;
             }
         };
-        send_mc_packet(stream, &target.0.to_string(), target.1).await;
 
+        let mut conn = MCConnTcp::new(stream);
+        send_mc_packet(&mut conn, &target.0.to_string(), target.1).await;
         connections.fetch_add(1, Ordering::Relaxed);
         /*
                 // Only the connect attempt is timed out:
@@ -106,15 +107,14 @@ fn get_current_time_millis() -> u128 {
         .expect("Time went backwards")
         .as_millis()
 }
-async fn send_mc_packet(stream: TcpStream, ip: &str, port: u16) {
+async fn send_mc_packet(conn: &mut MCConnTcp, ip: &str, port: u16) {
     let protocol_version = 770;
-    let mut conn = MCConnTcp::new(stream);
 
     // Switch to login state (2)
-    send_handshake(&mut conn, protocol_version, ip, port, 2).await;
+    send_handshake(conn, protocol_version, ip, port, 2).await;
 
     // Send login start packet
-    send_login_start(&mut conn, "test").await;
+    send_login_start(conn, "test").await;
 
     conn.write_packet(&Packet::empty(0x03)).await.ok();
 }
