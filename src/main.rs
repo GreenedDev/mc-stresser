@@ -2,11 +2,10 @@ use std::{fs, net::SocketAddrV4, sync::atomic::Ordering, sync::Arc};
 use std::{net::Ipv4Addr, sync::atomic::AtomicU64, time::Duration};
 
 use clap::Parser;
-use packet_utils::{send_handshake, send_login_start};
-use rust_mc_proto_tokio::{MCConnTcp, Packet};
 use tokio::time::sleep;
-mod packet_utils;
 
+use rust_mc_proto_tokio::{DataWriter, MCConnTcp, Packet};
+use uuid::Uuid;
 #[derive(Debug, Parser)]
 struct Args {
     server_address: Ipv4Addr,
@@ -98,4 +97,29 @@ fn load_proxies() -> Vec<SocketAddrV4> {
             SocketAddrV4::new(addr, port)
         })
         .collect()
+}
+
+// Send handshake packet to initiate connection
+pub async fn send_handshake(
+    conn: &mut MCConnTcp,
+    protocol_version: u16,
+    server_address: &str,
+    server_port: u16,
+    next_state: u8,
+) {
+    let mut packet = Packet::empty(0x00);
+
+    packet.write_i32_varint(protocol_version as i32).await.ok();
+    packet.write_string(server_address).await.ok();
+    packet.write_unsigned_short(server_port).await.ok();
+    packet.write_i32_varint(next_state as i32).await.ok();
+    conn.write_packet(&packet).await.ok();
+}
+
+// Send login start packet
+pub async fn send_login_start(conn: &mut MCConnTcp, username: &str) {
+    let mut packet = Packet::empty(0x00);
+    packet.write_string(username).await.ok();
+    packet.write_uuid(&Uuid::default()).await.ok(); // No UUID for offline mode
+    conn.write_packet(&packet).await.ok();
 }
