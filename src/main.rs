@@ -1,16 +1,10 @@
-use std::sync::atomic::AtomicUsize;
-use std::time::{SystemTime, UNIX_EPOCH};
 use std::{fs, net::SocketAddrV4, sync::atomic::Ordering, sync::Arc};
 use std::{net::Ipv4Addr, sync::atomic::AtomicU64, time::Duration};
 
 use clap::Parser;
-use color_eyre::eyre::{Context, OptionExt};
-use dashmap::DashMap;
 use packet_utils::{send_handshake, send_login_start};
 use rust_mc_proto_tokio::{MCConnTcp, Packet};
-use tokio::net::{TcpListener, TcpStream};
 use tokio::time::sleep;
-use tokio_socks::tcp::Socks4Stream;
 mod packet_utils;
 
 #[derive(Debug, Parser)]
@@ -21,9 +15,7 @@ struct Args {
 }
 
 #[tokio::main]
-async fn main() -> color_eyre::Result<()> {
-    color_eyre::install()?;
-
+async fn main() {
     let args = Args::parse();
     let target = (args.server_address, args.server_port);
     let connections = Arc::new(AtomicU64::new(0));
@@ -41,9 +33,10 @@ async fn main() -> color_eyre::Result<()> {
         });
     }
     println!("0000");
-    tokio::signal::ctrl_c().await?;
+    tokio::signal::ctrl_c()
+        .await
+        .expect("couldn't wait for ctrl c");
     println!("1111");
-    return Ok(());
 }
 
 async fn worker_loop(
@@ -52,19 +45,6 @@ async fn worker_loop(
     target: (Ipv4Addr, u16),
 ) {
     loop {
-        /*// get next index atomically (wrap-around)
-        let idx = proxy_index.fetch_add(1, Ordering::Relaxed) % proxies.len();
-        let proxy = proxies[idx];
-
-        // quick disabled check (no await)
-        if let Some(ts) = disabled_proxies.get(&proxy) {
-            if *ts >= get_current_time_millis() {
-                // proxy still disabled — try next immediately
-                continue;
-            } else {
-                disabled_proxies.remove(&proxy);
-            }
-        }*/
         let stream = match tokio::net::TcpStream::connect(target).await {
             Ok(value) => value,
             Err(_) => {
@@ -76,37 +56,9 @@ async fn worker_loop(
         let mut conn = MCConnTcp::new(stream);
         send_mc_packet(&mut conn, &target.0.to_string(), target.1).await;
         connections.fetch_add(1, Ordering::Relaxed);
-        /*
-                // Only the connect attempt is timed out:
-                match tokio::time::timeout(Duration::from_secs(2), Socks4Stream::connect(proxy, target))
-                    .await
-                {
-                    Ok(Ok(socks_stream)) => {
-                        connections.fetch_add(1, Ordering::Relaxed);
-                        // create a real String for IP and pass by ref to avoid borrow of temp
-                        let ip_str = target.0.to_string();
-                        let port = target.1;
-                        send_mc_packet(socks_stream.into_inner(), &ip_str, port).await;
-                    }
-                    Ok(Err(_)) | Err(_) => {
-                        // Err from connect OR timeout expired
-                        disabled_proxies.insert(proxy, get_current_time_millis() + 2000);
-                        failures.fetch_add(1, Ordering::Relaxed);
-                        // small backoff to avoid hot loop if all proxies failing:
-                        tokio::time::sleep(Duration::from_millis(1)).await;
-                    }
-                }
-        */
     }
 }
 
-fn get_current_time_millis() -> u128 {
-    let start = SystemTime::now();
-    start
-        .duration_since(UNIX_EPOCH)
-        .expect("Time went backwards")
-        .as_millis()
-}
 async fn send_mc_packet(conn: &mut MCConnTcp, ip: &str, port: u16) {
     let protocol_version = 770;
 
@@ -130,22 +82,20 @@ async fn write_stats(cps: Arc<AtomicU64>, fails: Arc<AtomicU64>) {
     }
 }
 
-fn load_proxies() -> color_eyre::Result<Vec<SocketAddrV4>> {
+fn load_proxies() -> Vec<SocketAddrV4> {
     fs::read_to_string("proxies.txt")
-        .wrap_err("couldn't find proxies.txt")?
+        .unwrap()
         .lines()
         .map(|line| {
             let mut parts = line.split(":");
-            let addr = parts.next().ok_or_eyre("missing server address")?;
-            let port = parts.next().ok_or_eyre("missing port")?;
+            let addr = parts.next().expect("missing server address");
+            let port = parts.next().expect("missing port");
 
             let addr = addr
                 .parse::<Ipv4Addr>()
-                .wrap_err("couldn't parse target as ipv4 addr")?;
-            let port = port
-                .parse::<u16>()
-                .wrap_err("couldn't parse port as an u16")?;
-            Ok(SocketAddrV4::new(addr, port))
+                .expect("couldn't parse target as ipv4 addr");
+            let port = port.parse::<u16>().expect("couldn't parse port as an u16");
+            SocketAddrV4::new(addr, port)
         })
         .collect()
 }

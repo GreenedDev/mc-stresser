@@ -5,7 +5,6 @@ edition = "2021"
 
 [dependencies]
 clap = { version = "4.5.39", features = ["derive"] }
-color-eyre = "0.6.4"
 rust_mc_proto_tokio = "0.1.18"
 tokio = { version = "1.45.1", features = ["full"] }
 tokio-socks = "0.5.2"
