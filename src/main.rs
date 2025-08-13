@@ -1,22 +1,43 @@
-use std::{fs, net::SocketAddrV4, sync::atomic::Ordering, sync::Arc};
+use std::net::SocketAddrV4;
 use std::{net::Ipv4Addr, sync::atomic::AtomicU64, time::Duration};
+use std::{sync::atomic::Ordering, sync::Arc};
 
 use clap::Parser;
+use hickory_resolver::Resolver;
 use tokio::time::sleep;
 
 use rust_mc_proto_tokio::{DataWriter, MCConnTcp, Packet};
 use uuid::Uuid;
+
+use crate::resolver::resolve_mc;
+mod resolver;
 #[derive(Debug, Parser)]
 struct Args {
-    server_address: Ipv4Addr,
-    server_port: u16,
+    addr_port: String,
     tasks: u32,
 }
-
+fn parse_target(target: String, default_port: u16) -> (String, u16) {
+    let mut split = target.split(":");
+    let addr = split.next().expect("no ip provided").to_string();
+    let port = match split.next() {
+        Some(value) => value.parse::<u16>().expect("can't parse port as u16"),
+        None => default_port,
+    };
+    return (addr, port);
+}
 #[tokio::main]
 async fn main() {
     let args = Args::parse();
-    let target = (args.server_address, args.server_port);
+    let default_port = 25565_u16;
+    let target = args.addr_port;
+    let (addr, port) = parse_target(target, default_port);
+    let socket_addr = match addr.parse::<Ipv4Addr>() {
+        Ok(value) => SocketAddrV4::new(value, port),
+        Err(_) => resolve_mc(addr, port, default_port).await,
+    };
+
+    println!("sssssss {result:?}");
+    /*
     let connections = Arc::new(AtomicU64::new(0));
     let failures = Arc::new(AtomicU64::new(0));
 
@@ -31,6 +52,7 @@ async fn main() {
             worker_loop(connections, failures, target).await;
         });
     }
+    */
     println!("0000");
     tokio::signal::ctrl_c()
         .await
@@ -79,39 +101,19 @@ async fn write_stats(cps: Arc<AtomicU64>, fails: Arc<AtomicU64>) {
             fails = fails.swap(0, Ordering::Relaxed),
         );
     }
-}
-
-fn load_proxies() -> Vec<SocketAddrV4> {
-    fs::read_to_string("proxies.txt")
-        .unwrap()
-        .lines()
-        .map(|line| {
-            let mut parts = line.split(":");
-            let addr = parts.next().expect("missing server address");
-            let port = parts.next().expect("missing port");
-
-            let addr = addr
-                .parse::<Ipv4Addr>()
-                .expect("couldn't parse target as ipv4 addr");
-            let port = port.parse::<u16>().expect("couldn't parse port as an u16");
-            SocketAddrV4::new(addr, port)
-        })
-        .collect()
-}
-
-// Send handshake packet to initiate connection
+} // Send handshake packet to initiate connection
 pub async fn send_handshake(
     conn: &mut MCConnTcp,
-    protocol_version: u16,
-    server_address: &str,
-    server_port: u16,
+    proto: u16,
+    srv_addr: &str,
+    srv_port: u16,
     next_state: u8,
 ) {
-    let mut packet = Packet::empty(0x00);
+    let mut packet = Packet::empty(0x00); //packet id for handshake
 
-    packet.write_i32_varint(protocol_version as i32).await.ok();
-    packet.write_string(server_address).await.ok();
-    packet.write_unsigned_short(server_port).await.ok();
+    packet.write_i32_varint(proto as i32).await.ok();
+    packet.write_string(srv_addr).await.ok();
+    packet.write_unsigned_short(srv_port).await.ok();
     packet.write_i32_varint(next_state as i32).await.ok();
     conn.write_packet(&packet).await.ok();
 }
