@@ -3,7 +3,6 @@ use std::{net::Ipv4Addr, sync::atomic::AtomicU64, time::Duration};
 use std::{sync::atomic::Ordering, sync::Arc};
 
 use clap::Parser;
-use hickory_resolver::Resolver;
 use tokio::time::sleep;
 
 use rust_mc_proto_tokio::{DataWriter, MCConnTcp, Packet};
@@ -36,7 +35,7 @@ async fn main() {
         Err(_) => resolve_mc(addr, port, default_port).await,
     };
 
-    println!("sssssss {result:?}");
+    println!("sssssss {socket_addr:?}");
     /*
     let connections = Arc::new(AtomicU64::new(0));
     let failures = Arc::new(AtomicU64::new(0));
