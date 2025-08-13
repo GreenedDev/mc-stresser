@@ -9,23 +9,22 @@ pub async fn send_handshake(
     srv_port: u16,
     next_state: u8,
 ) {
-    let mut packet = Packet::empty(0x00); //packet id for handshake
+    let mut packet = Packet::empty(0x00);
 
-    packet.write_i32_varint(proto as i32).await.ok();
-    packet.write_string(srv_addr).await.ok();
-    packet.write_unsigned_short(srv_port).await.ok();
-    packet.write_i32_varint(next_state as i32).await.ok();
-    conn.write_packet(&packet).await.ok();
+    _ = packet.write_u16_varint(proto).await;
+    _ = packet.write_string(srv_addr).await;
+    _ = packet.write_unsigned_short(srv_port).await;
+    _ = packet.write_u8_varint(next_state).await;
+    _ = conn.write_packet(&packet).await;
 }
 
 // Send login start packet
 pub async fn send_login_start(conn: &mut MCConnTcp, username: &str) {
     let mut packet = Packet::empty(0x00);
-    packet.write_string(username).await.ok();
-    packet.write_uuid(&Uuid::default()).await.ok(); // No UUID for offline mode
-    conn.write_packet(&packet).await.ok();
+    _ = packet.write_string(username).await;
+    _ = packet.write_uuid(&Uuid::default()).await; // No UUID for offline mode
+    _ = conn.write_packet(&packet).await;
 }
-
 pub async fn send_mc_packet(conn: &mut MCConnTcp, port: &u16, hostname: &String) {
     let protocol_version = 770;
 
@@ -35,5 +34,5 @@ pub async fn send_mc_packet(conn: &mut MCConnTcp, port: &u16, hostname: &String)
     // Send login start packet
     send_login_start(conn, "test").await;
 
-    conn.write_packet(&Packet::empty(0x03)).await.ok();
+    //_ = conn.write_packet(&Packet::empty(0x03)).await;
 }
