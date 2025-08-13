@@ -37,11 +37,9 @@ async fn main() {
             worker_loop(connections, failures, target, hostname.to_string()).await;
         });
     }
-    println!("0000");
     tokio::signal::ctrl_c()
         .await
         .expect("couldn't wait for ctrl c");
-    println!("1111");
 }
 
 async fn worker_loop(
