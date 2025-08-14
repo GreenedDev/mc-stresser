@@ -282,6 +282,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "ez_colorize"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e13167a0acec3cb3b1d68aeb0cfe2f1700d252a1bdb8d25d9da619b551443ac6"
+
+[[package]]
 name = "flate2"
 version = "1.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -656,6 +662,7 @@ dependencies = [
  "anyhow",
  "clap",
  "dashmap",
+ "ez_colorize",
  "hickory-resolver",
  "rust_mc_proto_tokio",
  "tokio",
