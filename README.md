@@ -1,1 +1,1 @@
-# stress-test
+# mc-stresser
