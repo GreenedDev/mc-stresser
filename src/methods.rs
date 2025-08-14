@@ -15,3 +15,9 @@ pub fn parse_method(input: &str) -> AttackMethod {
         }
     }
 }
+pub fn method_to_string(method: AttackMethod) -> String {
+    match method {
+        AttackMethod::Join => String::from("Join"),
+        AttackMethod::Ping => String::from("Ping"),
+    }
+}

@@ -14,7 +14,7 @@ use crate::counter::write_stats;
 use crate::duration::parse_duration_as_secs;
 use crate::method_join::send_join;
 use crate::method_ping::send_ping;
-use crate::methods::{parse_method, AttackMethod};
+use crate::methods::{method_to_string, parse_method, AttackMethod};
 use crate::resolver::{parse_hostname, parse_target};
 mod counter;
 mod mc_packet_utils;
@@ -24,9 +24,16 @@ mod methods;
 mod resolver;
 #[derive(Debug, Parser)]
 struct Flags {
+    ///IP or Domain of the target server. You can also use port here with ":"
     target: String,
+    /// Number of workers. Default is 100.
+    #[arg(short, long, default_value_t = 100)]
     workers: u32,
+    /// Attack duration. Available formats: seconds, minutes, hours.
+    #[arg(short, long, default_value_t = String::from("1m"))]
     duration: String,
+    /// Attack method. Available methods: join, ping.
+    #[arg(short, long, default_value_t = String::from("ping"))]
     method: String,
 }
 mod duration;
@@ -40,6 +47,10 @@ async fn main() {
     let method = Arc::new(parse_method(args.method.as_str()));
 
     println!("Running stress for {}", parsed_duration.red());
+    println!(
+        "Method: {}",
+        method_to_string(parse_method(args.method.as_str())).yellow()
+    );
     println!(
         "Resolved target {} {} {}",
         args.target.green(),
