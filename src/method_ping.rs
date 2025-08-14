@@ -7,6 +7,4 @@ pub async fn send_ping(conn: &mut MCConnTcp, port: &u16, hostname: &str) {
 
     // Switch to status state (1)
     send_handshake(conn, protocol_version, hostname, *port, 1).await;
-
-    //_ = conn.write_packet(&Packet::empty(0x03)).await;
 }
