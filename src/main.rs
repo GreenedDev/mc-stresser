@@ -17,25 +17,57 @@ mod resolver;
 struct Args {
     target: String,
     workers: u32,
-    duration_secs: u64,
+    duration: String,
+}
+fn extract_digits(s: &str) -> u64 {
+    let digits: String = s.chars().filter(|c| c.is_ascii_digit()).collect();
+    digits
+        .parse::<u64>()
+        .expect("Couldn't get number from duration")
+}
+pub fn parse_duration_as_secs(input: String) -> (u64, String) {
+    let input = input.to_lowercase();
+    for char in input.chars() {
+        if char.is_numeric() || char.eq(&'s') || char.eq(&'m') || char.eq(&'h') {
+            continue;
+        }
+        break;
+    }
+    let number = extract_digits(&input);
+    let blank_or_s = match number {
+        1 => "",
+        _ => "s",
+    };
+    if input.contains("s") {
+        (number, format!("{number} second{blank_or_s}"))
+    } else if input.contains("m") {
+        (number * 60, format!("{number} minute{blank_or_s}"))
+    } else if input.contains("h") {
+        (number * 3600, format!("{number} hour{blank_or_s}"))
+    } else {
+        (number, format!("{number} second{blank_or_s}"))
+    }
 }
 #[tokio::main]
 async fn main() {
     let args = Args::parse();
     let start_time = Instant::now();
+    let (duration_secs, parsed_duration) = parse_duration_as_secs(args.duration);
     let target = parse_target(args.target.as_str(), 25565).await.unwrap();
     let hostname = Arc::new(parse_hostname(args.target.as_str()));
-    println!("resolved target {target:?}");
-    let connections = Arc::new(AtomicU64::new(0));
+
+    println!("Running stress for {parsed_duration}");
+    println!("Resolved target {} = {target:?}", args.target);
+    let cps = Arc::new(AtomicU64::new(0));
     let failures = Arc::new(AtomicU64::new(0));
 
-    tokio::spawn(write_stats(connections.clone(), failures.clone()));
+    tokio::spawn(write_stats(cps.clone(), failures.clone()));
 
     let workers = args.workers;
 
     for _ in 0..workers {
         let hostname = hostname.clone();
-        let connections = connections.clone();
+        let connections = cps.clone();
         let failures = failures.clone();
         tokio::spawn(async move {
             worker_loop(connections, failures, target, hostname.as_str()).await;
@@ -44,7 +76,7 @@ async fn main() {
     tokio::spawn(async move {
         loop {
             sleep(Duration::from_secs(1)).await;
-            if start_time.elapsed().as_secs() > args.duration_secs {
+            if start_time.elapsed().as_secs() > duration_secs {
                 exit(0);
             }
         }
@@ -56,7 +88,7 @@ async fn main() {
 }
 
 async fn worker_loop(
-    connections: Arc<AtomicU64>,
+    cps: Arc<AtomicU64>,
     failures: Arc<AtomicU64>,
     target: SocketAddrV4,
     hostname: &str,
@@ -71,7 +103,7 @@ async fn worker_loop(
         };
         let mut conn = MCConnTcp::new(stream);
         send_mc_packet(&mut conn, &target.port(), hostname).await;
-        connections.fetch_add(1, Ordering::Relaxed);
+        cps.fetch_add(1, Ordering::Relaxed);
     }
 }
 
