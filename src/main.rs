@@ -12,7 +12,6 @@ use rust_mc_proto_tokio::MCConnTcp;
 
 use crate::counter::write_stats;
 use crate::duration::parse_duration_as_secs;
-use crate::mc_packet_utils::send_mc_packet;
 use crate::method_join::send_join;
 use crate::method_ping::send_ping;
 use crate::methods::{parse_method, AttackMethod};
