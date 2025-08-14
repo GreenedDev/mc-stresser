@@ -9,48 +9,21 @@ use tokio::time::sleep;
 
 use rust_mc_proto_tokio::MCConnTcp;
 
+use crate::duration::parse_duration_as_secs;
 use crate::mc_packet_utils::send_mc_packet;
 use crate::resolver::{parse_hostname, parse_target};
 mod mc_packet_utils;
 mod resolver;
 #[derive(Debug, Parser)]
-struct Args {
+struct Flags {
     target: String,
     workers: u32,
     duration: String,
 }
-fn extract_digits(s: &str) -> u64 {
-    let digits: String = s.chars().filter(|c| c.is_ascii_digit()).collect();
-    digits
-        .parse::<u64>()
-        .expect("Couldn't get number from duration")
-}
-pub fn parse_duration_as_secs(input: String) -> (u64, String) {
-    let input = input.to_lowercase();
-    for char in input.chars() {
-        if char.is_numeric() || char.eq(&'s') || char.eq(&'m') || char.eq(&'h') {
-            continue;
-        }
-        break;
-    }
-    let number = extract_digits(&input);
-    let blank_or_s = match number {
-        1 => "",
-        _ => "s",
-    };
-    if input.contains("s") {
-        (number, format!("{number} second{blank_or_s}"))
-    } else if input.contains("m") {
-        (number * 60, format!("{number} minute{blank_or_s}"))
-    } else if input.contains("h") {
-        (number * 3600, format!("{number} hour{blank_or_s}"))
-    } else {
-        (number, format!("{number} second{blank_or_s}"))
-    }
-}
+mod duration;
 #[tokio::main]
 async fn main() {
-    let args = Args::parse();
+    let args = Flags::parse();
     let start_time = Instant::now();
     let (duration_secs, parsed_duration) = parse_duration_as_secs(args.duration);
     let target = parse_target(args.target.as_str(), 25565).await.unwrap();
