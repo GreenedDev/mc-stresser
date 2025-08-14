@@ -5,14 +5,14 @@ use uuid::Uuid;
 pub async fn send_handshake(
     conn: &mut MCConnTcp,
     proto: u16,
-    srv_addr: &str,
+    hostname: &str,
     srv_port: u16,
     next_state: u8,
 ) {
     let mut packet = Packet::empty(0x00);
 
     _ = packet.write_u16_varint(proto).await;
-    _ = packet.write_string(srv_addr).await;
+    _ = packet.write_string(hostname).await;
     _ = packet.write_unsigned_short(srv_port).await;
     _ = packet.write_u8_varint(next_state).await;
     _ = conn.write_packet(&packet).await;
@@ -25,7 +25,7 @@ pub async fn send_login_start(conn: &mut MCConnTcp, username: &str) {
     _ = packet.write_uuid(&Uuid::default()).await; // No UUID for offline mode
     _ = conn.write_packet(&packet).await;
 }
-pub async fn send_mc_packet(conn: &mut MCConnTcp, port: &u16, hostname: &String) {
+pub async fn send_mc_packet(conn: &mut MCConnTcp, port: &u16, hostname: &str) {
     let protocol_version = 770;
 
     // Switch to login state (2)
