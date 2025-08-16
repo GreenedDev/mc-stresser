@@ -1,9 +1,11 @@
 use anyhow::{anyhow, Result};
 use hickory_resolver::{name_server::ConnectionProvider, Resolver};
 use std::net::{Ipv4Addr, SocketAddrV4};
+use crate::methods::methods::{method_to_port, method_to_srv_prefix, AttackMethod};
 
 async fn resolve_a<R: ConnectionProvider>(resolver: Resolver<R>, host: &str) -> Result<Ipv4Addr> {
     let response = resolver.ipv4_lookup(host).await.unwrap();
+
     if let Some(ip) = response.iter().next() {
         Ok(**ip)
     } else {
@@ -11,11 +13,11 @@ async fn resolve_a<R: ConnectionProvider>(resolver: Resolver<R>, host: &str) -> 
     }
 }
 
-pub async fn resolve_mc(host: &str, port: u16, try_srv: bool) -> Result<SocketAddrV4> {
+pub async fn resolve_target(host: &str, port: u16, srv_prefix: &str) -> Result<SocketAddrV4> {
     let resolver = Resolver::builder_tokio().unwrap().build();
 
-    if try_srv {
-        if let Ok(srv_lookup) = resolver.srv_lookup(format!("_minecraft._tcp.{host}")).await {
+    if !srv_prefix.is_empty() {
+        if let Ok(srv_lookup) = resolver.srv_lookup(format!("{srv_prefix}.{host}")).await {
             let srv_result = srv_lookup.iter().next().unwrap();
 
             if let Ok(ip) = resolve_a(resolver.clone(), &srv_result.target().to_string()).await {
@@ -28,7 +30,9 @@ pub async fn resolve_mc(host: &str, port: u16, try_srv: bool) -> Result<SocketAd
     Ok(SocketAddrV4::new(ip, port))
 }
 
-pub async fn parse_target(input: &str, default_port: u16) -> Result<SocketAddrV4> {
+pub async fn parse_target(input: &str, method: AttackMethod) -> Result<SocketAddrV4> {
+    let (default_port, srv_prefix) = (method_to_port(method), method_to_srv_prefix(method));
+
     // If user specified a port
     if let Some((host, port_str)) = input.rsplit_once(":") {
         let port = port_str.parse().map_err(|_| anyhow!("Invalid port"))?;
@@ -37,14 +41,15 @@ pub async fn parse_target(input: &str, default_port: u16) -> Result<SocketAddrV4
             return Ok(SocketAddrV4::new(ip, port));
         }
 
-        return resolve_mc(host, port, false).await;
+        return resolve_target(host, port, &srv_prefix).await;
     }
 
     // No port given, try SRV first
-    return resolve_mc(input, default_port, true).await;
+    return resolve_target(input, default_port, &srv_prefix).await;
 }
+
 pub fn parse_hostname(input: &str) -> String {
-    // If user specified a port
+    // Remove the port
     if let Some((host, _)) = input.rsplit_once(":") {
         return host.to_string();
     }

@@ -9,13 +9,15 @@ use std::{
 
 use ez_colorize::ColorizeDisplay;
 use tokio::time::sleep;
+
 pub const ANALYTICS: &str = "\x1b[33m[ANALYTICS]\x1b[0m";
+
 pub async fn write_stats(cps: Arc<AtomicU64>, fails: Arc<AtomicU64>) {
     let mut max_cps = 0_u64;
     let mut average_cps = 0_u64;
     let mut average_divisor = 0_u64;
-
     let mut is_started = false;
+
     loop {
         if !is_started && cps.load(Ordering::Relaxed) == 0 {
             sleep(Duration::from_millis(1)).await;
@@ -32,6 +34,7 @@ pub async fn write_stats(cps: Arc<AtomicU64>, fails: Arc<AtomicU64>) {
         if prev_cps > max_cps {
             max_cps = prev_cps;
         }
+
         print!("\x1b[4A");
         print!("\r");
         println!("{ANALYTICS} Traffic statistics:\x1B[K");
@@ -48,6 +51,7 @@ pub async fn write_stats(cps: Arc<AtomicU64>, fails: Arc<AtomicU64>) {
             "{ANALYTICS} FAILS: {fails:?}{}      \x1B[K",
             "/s".to_string().yellow()
         );
+        
         std::io::stdout().flush().unwrap();
     }
 }
