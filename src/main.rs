@@ -28,13 +28,13 @@ mod resolver;
 struct Flags {
     ///IP or Domain of the target server. You can also use port here with ":"
     target: String,
-    /// Number of workers. Default is 100.
+    /// Number of workers.
     #[arg(short, long, default_value_t = 100)]
     workers: u32,
     /// Attack duration. Available formats: seconds, minutes, hours.
     #[arg(short, long, default_value_t = String::from("1m"))]
     duration: String,
-    /// Attack method. Available methods: join, ping, icmp.
+    /// Attack method. Available methods: join, ping and icmp.
     #[arg(short, long, default_value_t = String::from("ping"))]
     method: String,
 }
