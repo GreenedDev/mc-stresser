@@ -8,6 +8,8 @@ use clap::Parser;
 use ez_colorize::ColorizeDisplay;
 use tokio::time::sleep;
 
+use rust_mc_proto_tokio::MCConnTcp;
+
 use crate::counter::write_stats;
 use crate::duration::parse_duration_as_secs;
 use crate::method_icmp_ping::send_icmp_ping;
@@ -101,16 +103,17 @@ async fn worker_loop(
             send_icmp_ping(target.ip(), cps.clone(), failures.clone()).await;
             continue;
         }
-        let mut stream = match tokio::net::TcpStream::connect(target).await {
+        let stream = match tokio::net::TcpStream::connect(target).await {
             Ok(value) => value,
             Err(_) => {
                 failures.fetch_add(1, Ordering::Relaxed);
                 continue;
             }
         };
+        let mut conn = MCConnTcp::new(stream);
         match *method {
-            AttackMethod::Join => send_join(&mut stream, &target.port(), hostname).await,
-            AttackMethod::Ping => send_ping(&mut stream, &target.port(), hostname).await,
+            AttackMethod::Join => send_join(&mut conn, &target.port(), hostname).await,
+            AttackMethod::Ping => send_ping(&mut conn, &target.port(), hostname).await,
             AttackMethod::IcmpPing => { /*impossible code logic*/ }
         };
         cps.fetch_add(1, Ordering::Relaxed);

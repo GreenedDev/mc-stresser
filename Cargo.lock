@@ -194,6 +194,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5b63caa9aa9397e2d9480a9b13673856c78d8ac123288526c37d7839f2a86990"
 
 [[package]]
+name = "crc32fast"
+version = "1.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a97769d94ddab943e4510d138150169a2758b5ef3eb191a9ee688de3e23ef7b3"
+dependencies = [
+ "cfg-if",
+]
+
+[[package]]
 name = "critical-section"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -277,6 +286,16 @@ name = "ez_colorize"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e13167a0acec3cb3b1d68aeb0cfe2f1700d252a1bdb8d25d9da619b551443ac6"
+
+[[package]]
+name = "flate2"
+version = "1.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7ced92e76e966ca2fd84c8f7aa01a4aea65b0eb6648d72f7c8f3e2764a67fece"
+dependencies = [
+ "crc32fast",
+ "miniz_oxide",
+]
 
 [[package]]
 name = "form_urlencoded"
@@ -955,6 +974,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "rust_mc_proto_tokio"
+version = "0.1.19"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "283d7eeb39d40b807b7771f5d0c23b1ce7c0fbf5b2f1d928e86489a1d9c87494"
+dependencies = [
+ "flate2",
+ "tokio",
+ "uuid",
+]
+
+[[package]]
 name = "rustc-demangle"
 version = "0.1.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1095,6 +1125,7 @@ dependencies = [
  "ez_colorize",
  "hickory-resolver",
  "ping",
+ "rust_mc_proto_tokio",
  "tokio",
  "tokio-socks",
  "uuid",
