@@ -1,29 +1,43 @@
+const UNITS: [(&str, u64); 3] = [("seconds", 1), ("minutes", 60), ("hours", 3600)];
+
 fn extract_digits(s: &str) -> u64 {
-    let digits: String = s.chars().filter(|c| c.is_ascii_digit()).collect();
-    digits
-        .parse::<u64>()
-        .expect("Couldn't get number from duration")
+	let digits: String = s.chars().filter(|c| c.is_ascii_digit()).collect();
+	digits.parse::<u64>().expect("Duration doesn't contain any numbers")
 }
-pub fn parse_duration_as_secs(input: String) -> (u64, String) {
-    let input = input.to_lowercase();
-    for char in input.chars() {
-        if char.is_numeric() || char.eq(&'s') || char.eq(&'m') || char.eq(&'h') {
-            continue;
-        }
-        break;
-    }
-    let number = extract_digits(&input);
-    let blank_or_s = match number {
-        1 => "",
-        _ => "s",
-    };
-    if input.contains("s") {
-        (number, format!("{number} second{blank_or_s}"))
-    } else if input.contains("m") {
-        (number * 60, format!("{number} minute{blank_or_s}"))
-    } else if input.contains("h") {
-        (number * 3600, format!("{number} hour{blank_or_s}"))
-    } else {
-        (number, format!("{number} second{blank_or_s}"))
-    }
+
+fn extract_letters(s: &str) -> String {
+	return s.chars().filter(|c| c.is_ascii_alphabetic()).collect();
+}
+
+pub fn parse_duration(input: &str) -> Result<(u64, String), String> {
+	let input = input.trim().to_lowercase();
+	let number = extract_digits(&input);
+
+	let unit_str = match extract_letters(&input).as_str() {
+		"" => "s".to_string(),
+		s => s.to_string(),
+	};
+
+	if number == 0 {
+		return Err("Duration can't be 0".to_string());
+	}
+
+	let mut matched: Option<(&str, u64)> = None;
+	for (name, factor) in UNITS {
+		if name.starts_with(&unit_str) {
+			matched = Some((name, factor));
+			break;
+		}
+	}
+
+	let (canonical_name, factor) = matched.ok_or("Invalid unit, please use seconds, minutes or hours")?;
+	let total_seconds = number * factor;
+
+	let display_unit = if number == 1 {
+		canonical_name.trim_end_matches("s")
+	} else {
+		canonical_name
+	};
+
+	Ok((total_seconds, format!("{number} {display_unit}")))
 }

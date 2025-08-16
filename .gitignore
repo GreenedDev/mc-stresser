@@ -1,0 +1,9 @@
+# Cargo
+target/
+debug/
+
+# rustfmt backup files
+**/*.rs.bk
+
+# MSVC Windows builds of rustc
+*.pdb
