@@ -29,3 +29,9 @@ Options:
 ```bash
 cargo build --release
 ```
+
+You can also format the project with 
+
+```bash
+cargo fmt
+```
