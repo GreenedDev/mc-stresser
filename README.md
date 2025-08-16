@@ -6,7 +6,7 @@ A modular tool for generating traffic and L7 attacks. Written in Rust.
 
 - High performance
 - Multiple protocols and methods
-- Extenible - users can easily add their own methods.
+- Extensible - users can easily add their own methods.
 - Traffic counters and measurements
 
 ## Usage
