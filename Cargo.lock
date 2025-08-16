@@ -656,22 +656,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "mc-stresser"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "clap",
- "dashmap",
- "ez_colorize",
- "hickory-resolver",
- "ping",
- "rust_mc_proto_tokio",
- "tokio",
- "tokio-socks",
- "uuid",
-]
-
-[[package]]
 name = "memchr"
 version = "2.7.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1130,6 +1114,22 @@ name = "stable_deref_trait"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a8f112729512f8e442d81f95a8a7ddf2b7c6b8a1a6f509a95864142b30cab2d3"
+
+[[package]]
+name = "stimulus"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "dashmap",
+ "ez_colorize",
+ "hickory-resolver",
+ "ping",
+ "rust_mc_proto_tokio",
+ "tokio",
+ "tokio-socks",
+ "uuid",
+]
 
 [[package]]
 name = "strsim"
