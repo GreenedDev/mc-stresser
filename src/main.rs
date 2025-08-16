@@ -5,11 +5,11 @@ use std::{sync::atomic::AtomicU64, time::Duration};
 
 use clap::Parser;
 use ez_colorize::ColorizeDisplay;
-use rust_mc_proto_tokio::MCConnTcp;
 use tokio::time::sleep;
 
 use crate::counter::write_stats;
 use crate::duration::parse_duration;
+use crate::mc_packet_utils::connect_tcp_mc;
 use crate::methods::icmp::send_icmp_ping;
 use crate::methods::join::send_join;
 use crate::methods::methods::{AttackMethod, method_to_string, parse_method};
@@ -87,25 +87,24 @@ async fn worker_loop(
     hostname: &str,
     method: AttackMethod,
 ) {
-    loop {
-        match method {
-            AttackMethod::Icmp => {
-                send_icmp_ping(target.ip(), cps.clone(), failures.clone()).await;
-            }
+    match method {
+        AttackMethod::Icmp => loop {
+            send_icmp_ping(target.ip(), cps.clone(), failures.clone()).await;
+        },
 
-            AttackMethod::Join | AttackMethod::Ping => {
-                if let Ok(stream) = tokio::net::TcpStream::connect(target).await {
-                    let mut conn = MCConnTcp::new(stream);
-                    match method {
-                        AttackMethod::Join => send_join(&mut conn, &target.port(), hostname).await,
-                        AttackMethod::Ping => send_ping(&mut conn, &target.port(), hostname).await,
-                        _ => { /*impossible code logic*/ }
-                    };
-                    cps.fetch_add(1, Ordering::Relaxed);
-                } else {
-                    failures.fetch_add(1, Ordering::Relaxed);
-                }
+        AttackMethod::Join => loop {
+            if let Some(mut conn) = connect_tcp_mc(target, failures.clone()).await {
+                send_join(&mut conn, &target.port(), hostname).await;
+
+                cps.fetch_add(1, Ordering::Relaxed);
             }
-        }
+        },
+        AttackMethod::Ping => loop {
+            if let Some(mut conn) = connect_tcp_mc(target, failures.clone()).await {
+                send_ping(&mut conn, &target.port(), hostname).await;
+
+                cps.fetch_add(1, Ordering::Relaxed);
+            }
+        },
     }
 }
