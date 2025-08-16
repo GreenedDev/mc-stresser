@@ -10,40 +10,44 @@ use std::{
 use ez_colorize::ColorizeDisplay;
 use tokio::time::sleep;
 pub const ANALYTICS: &str = "\x1b[33m[ANALYTICS]\x1b[0m";
-static mut MAX_CPS: u64 = 0;
-static mut AVERAGE_CPS: u64 = 0;
-static mut AVERAGE_DIVISOR: u64 = 0;
-#[expect(static_mut_refs)]
-pub async unsafe fn write_stats(cps: Arc<AtomicU64>, fails: Arc<AtomicU64>) {
-    unsafe {
-        loop {
-            sleep(Duration::from_secs(1)).await;
+pub async fn write_stats(cps: Arc<AtomicU64>, fails: Arc<AtomicU64>) {
+    let mut max_cps = 0_u64;
+    let mut average_cps = 0_u64;
+    let mut average_divisor = 0_u64;
 
-            AVERAGE_DIVISOR += 1;
-
-            let prev_cps = cps.swap(0, Ordering::Relaxed);
-            AVERAGE_CPS = ((AVERAGE_DIVISOR - 1) * AVERAGE_CPS + prev_cps) / AVERAGE_DIVISOR;
-            if prev_cps > MAX_CPS {
-                MAX_CPS = prev_cps;
-            }
-            print!("\x1b[4A");
-            print!("\r");
-            println!("{ANALYTICS} Traffic statistics:\x1B[K");
-            println!(
-                "{ANALYTICS} MAX CPS: {MAX_CPS:?}{} AVERAGE CPS: {AVERAGE_CPS:?}{}      \x1B[K",
-                "/s".to_string().yellow(),
-                "/s".to_string().yellow()
-            );
-            println!(
-                "{ANALYTICS} CPS: {prev_cps:?}{}      \x1B[K",
-                "/s".to_string().yellow()
-            );
-            println!(
-                "{ANALYTICS} FAILS: {fails:?}{}      \x1B[K",
-                "/s".to_string().yellow()
-            );
-            //print!("{ANALYTICS} Bits: {}\x1B[K", "0 mbit/s".to_string().cyan());
-            std::io::stdout().flush().unwrap();
+    let mut is_started = false;
+    loop {
+        if !is_started && cps.load(Ordering::Relaxed) == 0 {
+            sleep(Duration::from_millis(1)).await;
+            continue;
         }
+        is_started = true;
+
+        sleep(Duration::from_secs(1)).await;
+
+        average_divisor += 1;
+
+        let prev_cps = cps.swap(0, Ordering::Relaxed);
+        average_cps = ((average_divisor - 1) * average_cps + prev_cps) / average_divisor;
+        if prev_cps > max_cps {
+            max_cps = prev_cps;
+        }
+        print!("\x1b[4A");
+        print!("\r");
+        println!("{ANALYTICS} Traffic statistics:\x1B[K");
+        println!(
+            "{ANALYTICS} MAX CPS: {max_cps}{} AVERAGE CPS: {average_cps}{}      \x1B[K",
+            "/s".to_string().yellow(),
+            "/s".to_string().yellow()
+        );
+        println!(
+            "{ANALYTICS} CPS: {prev_cps:?}{}      \x1B[K",
+            "/s".to_string().yellow()
+        );
+        println!(
+            "{ANALYTICS} FAILS: {fails:?}{}      \x1B[K",
+            "/s".to_string().yellow()
+        );
+        std::io::stdout().flush().unwrap();
     }
 }

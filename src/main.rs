@@ -60,11 +60,10 @@ async fn main() {
         target.cyan(),
     );
     print!("\n\n\n\n\n");
+
     let cps = Arc::new(AtomicU64::new(0));
     let failures = Arc::new(AtomicU64::new(0));
-    unsafe {
-        tokio::spawn(write_stats(cps.clone(), failures.clone()));
-    }
+    tokio::spawn(write_stats(cps.clone(), failures.clone()));
 
     let workers = args.workers;
 
