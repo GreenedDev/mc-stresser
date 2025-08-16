@@ -48,10 +48,10 @@ async fn main() {
     let hostname = Arc::new(parse_hostname(args.target.as_str()));
     let method = Arc::new(parse_method(args.method.as_str()));
 
-    println!("Running stress for {}", parsed_duration.red());
     println!(
-        "Method: {}",
-        method_to_string(parse_method(args.method.as_str())).yellow()
+        "Running {} method for {}",
+        method_to_string(parse_method(args.method.as_str())).yellow(),
+        parsed_duration.red()
     );
     println!(
         "Resolved target {} {} {}",
@@ -99,7 +99,7 @@ async fn worker_loop(
     method: Arc<AttackMethod>,
 ) {
     loop {
-        if *method == AttackMethod::IcmpPing {
+        if *method == AttackMethod::Icmp {
             send_icmp_ping(target.ip(), cps.clone(), failures.clone()).await;
             continue;
         }
@@ -114,7 +114,7 @@ async fn worker_loop(
         match *method {
             AttackMethod::Join => send_join(&mut conn, &target.port(), hostname).await,
             AttackMethod::Ping => send_ping(&mut conn, &target.port(), hostname).await,
-            AttackMethod::IcmpPing => { /*impossible code logic*/ }
+            AttackMethod::Icmp => { /*impossible code logic*/ }
         };
         cps.fetch_add(1, Ordering::Relaxed);
     }

@@ -3,14 +3,14 @@ use std::process::exit;
 pub enum AttackMethod {
     Join,
     Ping,
-    IcmpPing,
+    Icmp,
 }
 pub fn parse_method(input: &str) -> AttackMethod {
     let input = input.to_lowercase();
     match input.as_str() {
         "join" => AttackMethod::Join,
         "ping" => AttackMethod::Ping,
-        "icmp" => AttackMethod::IcmpPing,
+        "icmp" => AttackMethod::Icmp,
         _ => {
             println!("Attack method {input} doesn't exist!");
             exit(0);
@@ -19,8 +19,8 @@ pub fn parse_method(input: &str) -> AttackMethod {
 }
 pub fn method_to_string(method: AttackMethod) -> String {
     match method {
-        AttackMethod::Join => String::from("Join"),
-        AttackMethod::Ping => String::from("Ping"),
-        AttackMethod::IcmpPing => String::from("IcmpPing"),
+        AttackMethod::Join => String::from("join"),
+        AttackMethod::Ping => String::from("ping"),
+        AttackMethod::Icmp => String::from("icmp"),
     }
 }
